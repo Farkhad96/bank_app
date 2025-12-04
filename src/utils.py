@@ -1,0 +1,143 @@
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from datetime import datetime, date, timedelta
+from pathlib import Path
+from typing import List, Literal,Tuple
+
+import pandas as pd
+import logging
+
+# Константы путей
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+SETTINGS_PATH = Path(__file__).resolve().parent.parent / "user_settings.json"
+
+
+@dataclass
+class UserSettings:
+    user_currencies: List[str]
+    user_stocks: List[str]
+
+
+def find_project_root(start: str | Path | None = None) -> Path:
+    """
+    Ищет вверх от start (или от текущего файла) папку,
+    где есть pyproject.toml — считаем её корнем проекта.
+    """
+    if start is None:
+        start = __file__
+
+    path = Path(start).resolve()
+
+    for parent in [path] + list(path.parents):
+        if (parent / "pyproject.toml").is_file():
+            return parent
+
+    raise RuntimeError("Не удалось найти корень проекта (нет pyproject.toml)")
+
+
+PROJECT_ROOT = find_project_root()
+
+logger = logging.getLogger("utils")
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(PROJECT_ROOT / "logs" / "utils.log", mode="w", encoding="utf-8")
+file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s : %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+
+def load_transactions(path: Path | None = None) -> pd.DataFrame:
+    """
+    Чтение Excel с транзакциями.
+    Ожидаемые колонки: 'Дата операции', 'Карта', 'Сумма операции', 'Категория', 'Описание'
+    """
+    path = path or (DATA_DIR / "operations.xlsx")
+    logger.info("Loading transactions from %s", path)
+    df = pd.read_excel(path)
+
+    # Приводим к нужным типам
+    df["Дата операции"] = pd.to_datetime(df["Дата операции"]).dt.date
+    df["Сумма операции"] = df["Сумма операции"].astype(float)
+    df["Категория"] = df["Категория"].astype(str)
+    df["Описание"] = df["Описание"].astype(str)
+    if "Карта" in df.columns:
+        df["Карта"] = df["Карта"].astype(str)
+
+    return df
+
+def load_user_settings(path: Path | None = None) -> UserSettings:
+    path = path or SETTINGS_PATH
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return UserSettings(
+        user_currencies=data.get("user_currencies", []),
+        user_stocks=data.get("user_stocks", []),
+    )
+
+
+def parse_datetime(dt_str: str) -> datetime:
+    """
+    Строка формата 'YYYY-MM-DD HH:MM:SS' -> datetime
+    """
+    return datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+
+
+RangeKind = Literal["W", "M", "Y", "ALL"]
+
+
+def get_date_range(target_date: date, range_kind: RangeKind = "M") -> Tuple[date, date]:
+    """
+    Вернуть (start_date, end_date) в зависимости от диапазона:
+    - W: неделя, в которую входит target_date (с понедельника по воскресенье)
+    - M: месяц (с 1-го числа)
+    - Y: год (с 1 января)
+    - ALL: с минимально возможной даты до target_date
+    """
+    if range_kind == "W":
+        # понедельник текущей недели
+        start = target_date - timedelta(days=target_date.weekday())
+        end = target_date
+    elif range_kind == "M":
+        start = target_date.replace(day=1)
+        end = target_date
+    elif range_kind == "Y":
+        start = target_date.replace(month=1, day=1)
+        end = target_date
+    elif range_kind == "ALL":
+        start = date(1970, 1, 1)
+        end = target_date
+    else:
+        raise ValueError(f"Unknown range_kind: {range_kind}")
+
+    return start, end
+
+
+def filter_by_date_range(
+    df: pd.DataFrame,
+    start_date: date,
+    end_date: date,
+    date_col: str = "Дата операции",
+) -> pd.DataFrame:
+    mask = (df[date_col] >= start_date) & (df[date_col] <= end_date)
+    return df.loc[mask].copy()
+
+
+def get_greeting(dt: datetime) -> str:
+    """
+    Возвращает приветствие на русском:
+    - 05:00–11:59 — Доброе утро
+    - 12:00–16:59 — Добрый день
+    - 17:00–22:59 — Добрый вечер
+    - 23:00–04:59 — Доброй ночи
+    """
+    hour = dt.hour
+    if 5 <= hour < 12:
+        return "Доброе утро"
+    elif 12 <= hour < 17:
+        return "Добрый день"
+    elif 17 <= hour < 23:
+        return "Добрый вечер"
+    else:
+        return "Доброй ночи"
