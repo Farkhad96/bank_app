@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, date
+from datetime import date
 
 import pandas as pd
 
-import src.utils as utils
-import src.views as views
+import src.external_api as external_api
 import src.reports as reports
 import src.services as services
-import src.external_api as external_api
+import src.utils as utils
+import src.views as views
 
 
 def main() -> None:
@@ -74,7 +74,7 @@ def main() -> None:
 
     # 10–12. Сервисы поиска — тоже используем df_cut
     simple_search_json = services.simple_search(df_cut, "магазин")
-    print("\n=== simple_search(\"магазин\") ===")
+    print('\n=== simple_search("магазин") ===')
     print(json.dumps(json.loads(simple_search_json), ensure_ascii=False, indent=2))
 
     phone_search_json = services.search_by_phone_numbers(df_cut)

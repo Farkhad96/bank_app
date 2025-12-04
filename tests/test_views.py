@@ -3,8 +3,7 @@ from datetime import date
 
 import pandas as pd
 
-from src import utils
-from src import views
+from src import utils, views
 
 
 class DummySettings(utils.UserSettings):
@@ -68,4 +67,3 @@ def test_get_events_page_data_invalid_date():
     res_json = views.get_events_page_data("2023-13-01", "M")
     data = json.loads(res_json)
     assert data.get("error") == "invalid date"
-

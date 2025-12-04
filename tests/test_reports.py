@@ -3,8 +3,7 @@ from datetime import date
 
 import pandas as pd
 
-from src import reports
-from src import utils
+from src import reports, utils
 
 
 def _make_df():

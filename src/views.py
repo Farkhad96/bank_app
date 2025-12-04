@@ -8,16 +8,8 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from .external_api import get_currency_rates, get_stock_prices
-from .utils import (
-    PROJECT_ROOT,
-    RangeKind,
-    filter_by_date_range,
-    get_date_range,
-    get_greeting,
-    load_transactions,
-    load_user_settings,
-    parse_datetime,
-)
+from .utils import (PROJECT_ROOT, RangeKind, filter_by_date_range, get_date_range, get_greeting, load_transactions,
+                    load_user_settings, parse_datetime)
 
 logger = logging.getLogger("views")
 logger.setLevel(logging.INFO)

@@ -105,4 +105,3 @@ def test_load_transactions_minimal(tmp_path, monkeypatch):
     assert len(df) == 2
     assert df["Сумма операции"].dtype.kind in ("f",)  # float
     assert str(df.loc[0, "Категория"]) == "Супермаркеты"
-

@@ -75,4 +75,3 @@ def test_get_stock_prices_error(monkeypatch):
 
     res = external_api.get_stock_prices(["AAPL"])
     assert res[0]["price"] == 0.0
-
