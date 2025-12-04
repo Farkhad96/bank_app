@@ -1,10 +1,12 @@
-from typing import Dict, List
 import json
-import os
 import logging
+import os
+from typing import Dict, List
+
 import requests
 from dotenv import load_dotenv
-from utils import PROJECT_ROOT
+
+from src.utils import PROJECT_ROOT
 
 load_dotenv()
 api_key = os.getenv("API_KEY")
@@ -22,8 +24,7 @@ logger.addHandler(file_handler)
 
 def get_currency_rates(currencies: List[str]) -> List[Dict[str, float]]:
     """
-    Заглушка для запроса курса валют.
-    Здесь можно использовать любой реальный API.
+    Запрашивает курсы валют к рублю.
     Возвращает список словарей: {"currency": "USD", "rate": 73.21}
     """
     logger.info("Requesting currency rates for %s", currencies)
@@ -32,7 +33,7 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, float]]:
     for cur in currencies:
         url = f"https://api.apilayer.com/currency_data/live?source={cur}&currencies=RUB"
         try:
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=1000)
         except requests.RequestException as exc:
             logger.error("Currency API request failed for %s: %s", cur, exc)
             results.append({"currency": cur, "rate": 0.0})
@@ -60,16 +61,16 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, float]]:
 
 def get_stock_prices(stocks: List[str]) -> List[Dict[str, float]]:
     """
-    Заглушка для запроса цен акций.
+    Запрашивает цены акций.
     Возвращает список словарей: {"stock": "AAPL", "price": 150.12}
     """
     logger.info("Requesting stock prices for %s", stocks)
 
     results: List[Dict[str, float]] = []
     for s in stocks:
-        url = "https://api.marketstack.com/v2/"
+        url = "https://api.marketstack.com/v2/eod"
         try:
-            response = requests.get(url, params={"access_key": f"{api_key_stock}", "symbols": f"{s}"}, timeout=10)
+            response = requests.get(url, params={"access_key": f"{api_key_stock}", "symbols": f"{s}"})
         except requests.RequestException as exc:
             logger.error("Stock API request failed for %s: %s", s, exc)
             results.append({"stock": s, "price": 0.0})

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
+import logging
+import math
 import re
 from datetime import date
 from typing import Any, Dict, List
-import logging
-import math
-import json
 
 import pandas as pd
 
@@ -19,9 +19,7 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 
 
-def analyze_cashback_categories(
-    data: pd.DataFrame, year: int, month: int, rate: float = 0.05
-) -> str:
+def analyze_cashback_categories(data: pd.DataFrame, year: int, month: int, rate: float = 0.05) -> str:
     """
     Анализ выгодности категорий повышенного кэшбэка.
 
@@ -96,7 +94,7 @@ def investment_bank(
         return tx.get("Сумма операции", 0) < 0
 
     def rounding_diff(tx: Dict[str, Any]) -> float:
-        amount = -tx.get("Сумма операции")
+        amount: float = -(tx.get("Сумма операции"))
         rounded = math.ceil(amount / limit) * limit
         return rounded - amount
 
@@ -144,9 +142,7 @@ def simple_search(transactions: pd.DataFrame, query: str) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-PHONE_PATTERN = re.compile(
-    r"\+7\s?\d{3}\s?\d{3}-?\d{2}-?\d{2}"
-)
+PHONE_PATTERN = re.compile(r"\+7\s?\d{3}\s?\d{3}-?\d{2}-?\d{2}")
 
 
 def search_by_phone_numbers(transactions: pd.DataFrame) -> str:

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List, Literal, Tuple
 
 import pandas as pd
-import logging
 
 # Константы путей
 
@@ -58,7 +58,20 @@ def load_transactions(path: Path | None = None) -> pd.DataFrame:
     df = pd.read_excel(path)
 
     # Приводим к нужным типам
-    df["Дата операции"] = pd.to_datetime(df["Дата операции"]).dt.date
+    # Сначала пробуем ожидаемый формат, если не получилось — падаем обратно на автоопределение
+    try:
+        df["Дата операции"] = pd.to_datetime(
+            df["Дата операции"],
+            format="%d.%m.%Y %H:%M:%S",
+            errors="raise",
+        ).dt.date
+    except ValueError:
+        df["Дата операции"] = pd.to_datetime(
+            df["Дата операции"],
+            dayfirst=True,
+            errors="raise",
+        ).dt.date
+
     df["Сумма операции"] = df["Сумма операции"].astype(float)
     df["Категория"] = df["Категория"].astype(str)
     df["Описание"] = df["Описание"].astype(str)

@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, List
 import json
 import logging
+from datetime import datetime
+from typing import Any, Dict, List
 
 import pandas as pd
 
+from .external_api import get_currency_rates, get_stock_prices
 from .utils import (
+    PROJECT_ROOT,
+    RangeKind,
+    filter_by_date_range,
+    get_date_range,
+    get_greeting,
     load_transactions,
     load_user_settings,
     parse_datetime,
-    get_date_range,
-    filter_by_date_range,
-    get_greeting,
-    RangeKind,
-    PROJECT_ROOT,
 )
-from .external_api import get_currency_rates, get_stock_prices
 
 logger = logging.getLogger("views")
 logger.setLevel(logging.INFO)
@@ -27,37 +27,38 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 
 
-def _get_card_summary(df: pd.DataFrame) -> List[Dict[str, Any]]:
+def _get_card_summary(df_period: pd.DataFrame) -> list[dict[str, object]]:
     """
-    Для каждой карты считает:
-    - общую сумму расходов
-    - кешбэк = 1 рубль за каждые 100 рублей расходов
+    Агрегация расходов по картам для выбранного периода.
+    Возвращает список словарей с полями:
+    * `card`
+    * `total_expense`
     """
-    logger.info("_get_card_summary called, rows=%d", len(df))
-    # расходы считаем только по отрицательным суммам
-    df_expenses = df[df["Сумма операции"] < 0].copy()
-    if df_expenses.empty:
-        logger.info("_get_card_summary: no expenses in period")
+    # фильтруем только расходы (отрицательные суммы)
+    df_expenses = df_period[df_period["Сумма операции"] < 0].copy()
+
+    # если нет колонки `Карта` или нет расходов, возвращаем пустой список
+    if "Карта" not in df_expenses.columns or df_expenses.empty:
         return []
 
-    df_expenses["Расход"] = -df_expenses["Сумма операции"]
+    # нормализуем название карты в строку, чтобы избежать проблем с типами
+    df_expenses["Карта"] = df_expenses["Карта"].astype(str)
 
+    # группируем по карте и считаем сумму расходов (по модулю)
+    df_expenses["Расход"] = df_expenses["Сумма операции"].abs()
     grouped = df_expenses.groupby("Карта")["Расход"].sum().reset_index()
 
-    result: List[Dict[str, Any]] = []
-    for _, row in grouped.iterrows():
-        card = str(row["Карта"])
-        last_digits = card[-4:] if len(card) >= 4 else card
-        total_spent = float(round(row["Расход"], 2))
-        cashback = round(total_spent / 100, 2)
-        result.append(
-            {
-                "last_digits": last_digits,
-                "total_spent": total_spent,
-                "cashback": cashback,
-            }
-        )
-    logger.info("_get_card_summary finished, cards=%d", len(result))
+    # сортировка по сумме расходов по убыванию
+    grouped = grouped.sort_values("Расход", ascending=False)
+
+    # приведение к формату для JSON
+    result: list[dict[str, object]] = [
+        {
+            "card": row["Карта"],
+            "total_expense": float(row["Расход"]),
+        }
+        for _, row in grouped.iterrows()
+    ]
     return result
 
 
@@ -152,9 +153,7 @@ def _aggregate_expenses(df: pd.DataFrame) -> Dict[str, Any]:
     total_amount = int(round(df_exp["amount_pos"].sum()))
 
     # main: группируем по категории
-    grouped = (
-        df_exp.groupby("Категория")["amount_pos"].sum().reset_index()
-    )
+    grouped = df_exp.groupby("Категория")["amount_pos"].sum().reset_index()
     grouped = grouped.sort_values("amount_pos", ascending=False)
 
     top7 = grouped.head(7)
@@ -179,9 +178,7 @@ def _aggregate_expenses(df: pd.DataFrame) -> Dict[str, Any]:
 
     transfers_and_cash: List[Dict[str, Any]] = []
     if not df_tc.empty:
-        grouped_tc = (
-            df_tc.groupby("Категория")["amount_pos"].sum().reset_index()
-        )
+        grouped_tc = df_tc.groupby("Категория")["amount_pos"].sum().reset_index()
         grouped_tc = grouped_tc.sort_values("amount_pos", ascending=False)
         for _, row in grouped_tc.iterrows():
             transfers_and_cash.append(
@@ -224,9 +221,7 @@ def _aggregate_income(df: pd.DataFrame) -> Dict[str, Any]:
 
     total_amount = int(round(df_inc["amount_pos"].sum()))
 
-    grouped = (
-        df_inc.groupby("Категория")["amount_pos"].sum().reset_index()
-    )
+    grouped = df_inc.groupby("Категория")["amount_pos"].sum().reset_index()
     grouped = grouped.sort_values("amount_pos", ascending=False)
 
     main_list: List[Dict[str, Any]] = []
