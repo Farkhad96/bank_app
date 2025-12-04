@@ -31,7 +31,7 @@ def test_report_expenses_by_category_json_and_content(tmp_path, monkeypatch):
 
     # проверяем, что файл отчёта создан
     reports_dir = tmp_path / "reports"
-    saved_files = list(reports_dir.glob("report_expenses_by_category_*.csv"))
+    saved_files = list(reports_dir.glob("report_expenses_by_category_*.json"))
     assert saved_files, "отчётный файл не создан"
 
 
