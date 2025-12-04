@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List
+import json
+import logging
 
 import pandas as pd
 
@@ -12,20 +14,30 @@ from .utils import (
     get_date_range,
     filter_by_date_range,
     get_greeting,
-    RangeKind
+    RangeKind,
+    PROJECT_ROOT,
 )
 from .external_api import get_currency_rates, get_stock_prices
+
+logger = logging.getLogger("views")
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(PROJECT_ROOT / "logs" / "views.log", mode="w", encoding="utf-8")
+file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s : %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
 
 
 def _get_card_summary(df: pd.DataFrame) -> List[Dict[str, Any]]:
     """
     Для каждой карты считает:
-    - общую сумму расходов (отрицательные суммы превращаем в положительные расходы)
-    - кешбэк = 1 рубль за каждые 100 рублей расходов (floor)
+    - общую сумму расходов
+    - кешбэк = 1 рубль за каждые 100 рублей расходов
     """
+    logger.info("_get_card_summary called, rows=%d", len(df))
     # расходы считаем только по отрицательным суммам
     df_expenses = df[df["Сумма операции"] < 0].copy()
     if df_expenses.empty:
+        logger.info("_get_card_summary: no expenses in period")
         return []
 
     df_expenses["Расход"] = -df_expenses["Сумма операции"]
@@ -45,6 +57,7 @@ def _get_card_summary(df: pd.DataFrame) -> List[Dict[str, Any]]:
                 "cashback": cashback,
             }
         )
+    logger.info("_get_card_summary finished, cards=%d", len(result))
     return result
 
 
@@ -52,7 +65,9 @@ def _get_top_transactions(df: pd.DataFrame, n: int = 5) -> List[Dict[str, Any]]:
     """
     Топ-n транзакций по модулю суммы.
     """
+    logger.info("_get_top_transactions called, rows=%d, n=%d", len(df), n)
     if df.empty:
+        logger.info("_get_top_transactions: empty dataframe")
         return []
 
     df_tmp = df.copy()
@@ -69,21 +84,25 @@ def _get_top_transactions(df: pd.DataFrame, n: int = 5) -> List[Dict[str, Any]]:
                 "description": row["Описание"],
             }
         )
+    logger.info("_get_top_transactions finished, returned=%d", len(result))
     return result
 
 
-def get_main_page_data(dt_str: str) -> Dict[str, Any]:
+def get_main_page_data(dt_str: str) -> str:
     """
     Главная страница:
     - dt_str: 'YYYY-MM-DD HH:MM:SS'
-    Возвращает словарь (который потом можно превратить в JSON).
+    Возвращает JSON-строку с данными для главной страницы.
     """
+    logger.info("get_main_page_data called with dt_str=%r", dt_str)
     dt: datetime = parse_datetime(dt_str)
     greeting = get_greeting(dt)
 
     df = load_transactions()
+    logger.info("Transactions loaded: %d rows", len(df))
     start_date, end_date = get_date_range(dt.date(), "M")
     df_period = filter_by_date_range(df, start_date, end_date)
+    logger.info("Filtered period %s-%s, rows=%d", start_date, end_date, len(df_period))
 
     cards = _get_card_summary(df_period)
     top_transactions = _get_top_transactions(df_period)
@@ -92,24 +111,35 @@ def get_main_page_data(dt_str: str) -> Dict[str, Any]:
     currency_rates = get_currency_rates(settings.user_currencies)
     stock_prices = get_stock_prices(settings.user_stocks)
 
-    return {
+    payload: Dict[str, Any] = {
         "greeting": greeting,
         "cards": cards,
         "top_transactions": top_transactions,
         "currency_rates": currency_rates,
         "stock_prices": stock_prices,
     }
+    logger.info(
+        "get_main_page_data finished: cards=%d, top_tx=%d, currencies=%d, stocks=%d",
+        len(cards),
+        len(top_transactions),
+        len(currency_rates),
+        len(stock_prices),
+    )
+    return json.dumps(payload, ensure_ascii=False)
+
 
 def _aggregate_expenses(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Расходы:
-    - total_amount: сумма расходов (целое, округление)
-    - main: топ-7 категорий + 'Остальное'
-    - transfers_and_cash: 'Наличные', 'Переводы'
+    - total_amount
+    - main
+    - transfers_and_cash
     """
+    logger.info("_aggregate_expenses called, rows=%d", len(df))
     # расходы — отрицательные суммы
     df_exp = df[df["Сумма операции"] < 0].copy()
     if df_exp.empty:
+        logger.info("_aggregate_expenses: no expenses")
         return {
             "total_amount": 0,
             "main": [],
@@ -161,21 +191,30 @@ def _aggregate_expenses(df: pd.DataFrame) -> Dict[str, Any]:
                 }
             )
 
-    return {
+    result = {
         "total_amount": total_amount,
         "main": main_list,
         "transfers_and_cash": transfers_and_cash,
     }
+    logger.info(
+        "_aggregate_expenses finished: total=%d, main_len=%d, transfers_len=%d",
+        total_amount,
+        len(main_list),
+        len(transfers_and_cash),
+    )
+    return result
 
 
 def _aggregate_income(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Поступления:
-    - total_amount: сумма положительных операций
-    - main: по категориям, по убыванию
+    - total_amount
+    - main
     """
+    logger.info("_aggregate_income called, rows=%d", len(df))
     df_inc = df[df["Сумма операции"] > 0].copy()
     if df_inc.empty:
+        logger.info("_aggregate_income: no income")
         return {
             "total_amount": 0,
             "main": [],
@@ -199,30 +238,36 @@ def _aggregate_income(df: pd.DataFrame) -> Dict[str, Any]:
             }
         )
 
-    return {
+    result = {
         "total_amount": total_amount,
         "main": main_list,
     }
+    logger.info("_aggregate_income finished: total=%d, main_len=%d", total_amount, len(main_list))
+    return result
 
 
 def get_events_page_data(
     date_str: str,
     range_kind: RangeKind = "M",
-) -> Dict[str, Any]:
+) -> str:
     """
-    Страница 'События':
-    - date_str: 'YYYY-MM-DD' или 'YYYY-MM-DD HH:MM:SS'
-    - range_kind: 'W' | 'M' | 'Y' | 'ALL'
+    Страница 'События'.
     """
-    # допускаем оба формата
-    if " " in date_str:
-        dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-    else:
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
+    logger.info("get_events_page_data called with date_str=%r, range_kind=%s", date_str, range_kind)
+    try:
+        if " " in date_str:
+            dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as exc:
+        logger.error("Invalid date_str in get_events_page_data: %r (%s)", date_str, exc)
+        return json.dumps({"error": "invalid date"}, ensure_ascii=False)
 
     df = load_transactions()
+    logger.info("Transactions loaded: %d rows", len(df))
     start_date, end_date = get_date_range(dt.date(), range_kind)
     df_period = filter_by_date_range(df, start_date, end_date)
+    logger.info("Filtered period %s-%s, rows=%d", start_date, end_date, len(df_period))
 
     expenses = _aggregate_expenses(df_period)
     income = _aggregate_income(df_period)
@@ -231,9 +276,17 @@ def get_events_page_data(
     currency_rates = get_currency_rates(settings.user_currencies)
     stock_prices = get_stock_prices(settings.user_stocks)
 
-    return {
+    payload: Dict[str, Any] = {
         "expenses": expenses,
         "income": income,
         "currency_rates": currency_rates,
         "stock_prices": stock_prices,
     }
+    logger.info(
+        "get_events_page_data finished: expenses_total=%s, income_total=%s, currencies=%d, stocks=%d",
+        expenses.get("total_amount"),
+        income.get("total_amount"),
+        len(currency_rates),
+        len(stock_prices),
+    )
+    return json.dumps(payload, ensure_ascii=False)
