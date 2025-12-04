@@ -43,7 +43,7 @@ def report_to_file(_func: Any = None, *, filename: str = None) -> Any:
 
             if filename is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                default_name = f"{func.__name__}_{timestamp}.csv"
+                default_name = f"{func.__name__}_{timestamp}.json"
                 file_path = reports_dir / default_name
             else:
                 file_path = reports_dir / filename
