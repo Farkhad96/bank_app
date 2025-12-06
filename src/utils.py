@@ -9,6 +9,7 @@ from typing import List, Literal, Tuple
 
 import pandas as pd
 
+
 @dataclass
 class UserSettings:
     user_currencies: List[str]
@@ -30,6 +31,7 @@ def find_project_root(start: str | Path | None = None) -> Path:
             return parent
 
     raise RuntimeError("Не удалось найти корень проекта (нет pyproject.toml)")
+
 
 # Константы путей
 

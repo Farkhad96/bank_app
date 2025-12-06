@@ -1,11 +1,11 @@
 import json
 from datetime import date
 
+import pandas as pd
 import pytest
 
-import pandas as pd
-
 from src import services
+
 
 @pytest.fixture
 def df_cashback_cat() -> pd.DataFrame:
@@ -18,6 +18,8 @@ def df_cashback_cat() -> pd.DataFrame:
             "Статус": ["OK", "OK"],
         }
     )
+
+
 @pytest.fixture
 def df_cashback_cat_no_exp() -> pd.DataFrame:
     return pd.DataFrame(
@@ -29,6 +31,8 @@ def df_cashback_cat_no_exp() -> pd.DataFrame:
             "Статус": ["OK"],
         }
     )
+
+
 @pytest.fixture
 def tx_investment() -> list[dict]:
     return [
@@ -36,9 +40,12 @@ def tx_investment() -> list[dict]:
         {"Дата операции": "2023-05-03", "Сумма операции": -50.0, "Статус": "OK"},
         {"Дата операции": "2023-06-01", "Сумма операции": -10.0, "Статус": "OK"},  # другой месяц
     ]
+
+
 @pytest.fixture
 def tx_investment_bad() -> list[dict]:
-    return [{"Дата операции": "bad-date", "Сумма операции": -100.0,"Статус": "OK"}]
+    return [{"Дата операции": "bad-date", "Сумма операции": -100.0, "Статус": "OK"}]
+
 
 def test_analyze_cashback_categories_basic(df_cashback_cat):
     res_json = services.analyze_cashback_categories(df_cashback_cat, 2023, 5, rate=0.1)
@@ -64,6 +71,7 @@ def test_investment_bank_invalid_month(tx_investment_bad):
     res_json = services.investment_bank("2023/05", tx_investment_bad, limit=10)
     data = json.loads(res_json)
     assert data["total_invested"] == 0.0
+
 
 @pytest.fixture
 def _make_df_for_search():

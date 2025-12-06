@@ -2,7 +2,6 @@ import json
 from datetime import date
 
 import pandas as pd
-
 import pytest
 
 from src import utils, views
@@ -10,6 +9,7 @@ from src import utils, views
 
 class DummySettings(utils.UserSettings):
     pass
+
 
 @pytest.fixture
 def _make_tx_df():
@@ -25,7 +25,7 @@ def _make_tx_df():
     )
 
 
-def test_get_main_page_data(monkeypatch,_make_tx_df):
+def test_get_main_page_data(monkeypatch, _make_tx_df):
     # подмена загрузки транзакций
     monkeypatch.setattr(views, "load_transactions", lambda: _make_tx_df)
 
@@ -48,7 +48,7 @@ def test_get_main_page_data(monkeypatch,_make_tx_df):
     assert data["stock_prices"][0]["stock"] == "AAPL"
 
 
-def test_get_events_page_data_month(monkeypatch,_make_tx_df):
+def test_get_events_page_data_month(monkeypatch, _make_tx_df):
     monkeypatch.setattr(views, "load_transactions", lambda: _make_tx_df)
 
     dummy_settings = DummySettings(user_currencies=["USD"], user_stocks=["AAPL"])

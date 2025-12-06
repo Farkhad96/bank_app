@@ -18,6 +18,7 @@ file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s : %(m
 file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 
+
 def get_main_page_data(dt_str: str) -> str:
     """
     Главная страница:
@@ -28,20 +29,21 @@ def get_main_page_data(dt_str: str) -> str:
     dt: datetime = parse_datetime(dt_str)
     greeting = get_greeting(dt)
 
-    df : pd.DataFrame = load_transactions()
+    df: pd.DataFrame = load_transactions()
     logger.info("Transactions loaded: %d rows", len(df))
     start_date, end_date = get_date_range(dt.date(), "M")
     df_period = filter_by_date_range(df, start_date, end_date)
     logger.info("Filtered period %s-%s, rows=%d", start_date, end_date, len(df_period))
 
-
-       #Агрегация расходов по картам для выбранного периода.
-       #cards: список словарей с полями:
-       #* `card`
-       #* `total_expense`
+    # Агрегация расходов по картам для выбранного периода.
+    # cards: список словарей с полями:
+    # * `card`
+    # * `total_expense`
 
     # фильтруем только расходы (отрицательные суммы)
-    df_expenses = df_period[(df_period["Статус"].isin(["OK"])) & (df_period["Номер карты"].notnull()) & (df_period["Сумма операции"] < 0)].copy()
+    df_expenses = df_period[
+        (df_period["Статус"].isin(["OK"])) & (df_period["Номер карты"].notnull()) & (df_period["Сумма операции"] < 0)
+    ].copy()
 
     # нормализуем название карты в строку, чтобы избежать проблем с типами
     df_expenses["Номер карты"] = df_expenses["Номер карты"].astype(str)
@@ -63,8 +65,7 @@ def get_main_page_data(dt_str: str) -> str:
     ]
     logger.info("Aggregated expenses by cards, cards_count=%d", len(cards))
 
-
-    #Топ-n транзакций по модулю суммы.
+    # Топ-n транзакций по модулю суммы.
     n = 5
     df = df_period.copy()
     df_tmp = df.copy()
@@ -102,6 +103,7 @@ def get_main_page_data(dt_str: str) -> str:
         len(stock_prices),
     )
     return json.dumps(payload, ensure_ascii=False)
+
 
 def get_events_page_data(
     date_str: str,

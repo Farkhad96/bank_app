@@ -7,6 +7,7 @@ import pytest
 
 from src import utils
 
+
 @pytest.fixture
 def df_src() -> pd.DataFrame:
     return pd.DataFrame(
@@ -16,24 +17,25 @@ def df_src() -> pd.DataFrame:
             "Сумма операции": [-10.5, 20],
             "Категория": ["Супермаркеты", "Переводы"],
             "Описание": ["Покупка", "Перевод"],
-            "Статус": ["OK", "OK"]
+            "Статус": ["OK", "OK"],
         }
     )
 
+
 @pytest.fixture
 def sample_df() -> pd.DataFrame:
-    return  pd.DataFrame(
+    return pd.DataFrame(
         {
-            "Дата операции": [date(2023, 5, 1),
-                              date(2023, 5, 10),
-                              date(2023, 6, 1)],
+            "Дата операции": [date(2023, 5, 1), date(2023, 5, 10), date(2023, 6, 1)],
             "value": [1, 2, 3],
         }
     )
 
+
 @pytest.fixture
 def settings_sample() -> dict:
     return {"user_currencies": ["USD"], "user_stocks": ["AAPL", "TSLA"]}
+
 
 def test_parse_datetime_ok():
     dt = utils.parse_datetime("2023-05-01 12:34:56")
@@ -85,13 +87,15 @@ def test_get_date_range_invalid_kind():
     with pytest.raises(ValueError):
         utils.get_date_range(date(2023, 1, 1), "X")  # type: ignore[arg-type]
 
+
 def test_filter_by_date_range(sample_df):
     start, end = date(2023, 5, 1), date(2023, 5, 31)
     filtered = utils.filter_by_date_range(sample_df, start, end)
     assert len(filtered) == 2
     assert filtered["value"].tolist() == [1, 2]
 
-def test_load_user_settings_tmp(tmp_path, monkeypatch,settings_sample):
+
+def test_load_user_settings_tmp(tmp_path, monkeypatch, settings_sample):
     settings_file = tmp_path / "settings.json"
     settings_file.write_text(json.dumps(settings_sample, ensure_ascii=False), encoding="utf-8")
 
@@ -103,7 +107,7 @@ def test_load_user_settings_tmp(tmp_path, monkeypatch,settings_sample):
     assert settings.user_stocks == ["AAPL", "TSLA"]
 
 
-def test_load_transactions_minimal(tmp_path, monkeypatch,df_src):
+def test_load_transactions_minimal(tmp_path, monkeypatch, df_src):
     xlsx_path = tmp_path / "operations.xlsx"
     df_src.to_excel(xlsx_path, index=False)
 
