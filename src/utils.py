@@ -9,12 +9,6 @@ from typing import List, Literal, Tuple
 
 import pandas as pd
 
-# Константы путей
-
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-SETTINGS_PATH = Path(__file__).resolve().parent.parent / "user_settings.json"
-
-
 @dataclass
 class UserSettings:
     user_currencies: List[str]
@@ -37,8 +31,12 @@ def find_project_root(start: str | Path | None = None) -> Path:
 
     raise RuntimeError("Не удалось найти корень проекта (нет pyproject.toml)")
 
+# Константы путей
 
 PROJECT_ROOT = find_project_root()
+DATA_DIR = PROJECT_ROOT / "data"
+SETTINGS_PATH = PROJECT_ROOT / "user_settings.json"
+
 
 logger = logging.getLogger("utils")
 logger.setLevel(logging.INFO)

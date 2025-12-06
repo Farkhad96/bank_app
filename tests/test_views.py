@@ -3,28 +3,31 @@ from datetime import date
 
 import pandas as pd
 
+import pytest
+
 from src import utils, views
 
 
 class DummySettings(utils.UserSettings):
     pass
 
-
+@pytest.fixture
 def _make_tx_df():
     return pd.DataFrame(
         {
             "Дата операции": [date(2023, 5, 1), date(2023, 5, 2), date(2023, 5, 3)],
-            "Карта": ["1111222233334444", "5555666677778888", "5555666677778888"],
+            "Номер карты": ["1111222233334444", "5555666677778888", "5555666677778888"],
             "Сумма операции": [-100.0, -200.0, 300.0],
             "Категория": ["Супермаркеты", "Наличные", "Зарплата"],
             "Описание": ["Покупка", "Снятие", "Зарплата"],
+            "Статус": ["OK", "OK", "OK"],
         }
     )
 
 
-def test_get_main_page_data(monkeypatch):
+def test_get_main_page_data(monkeypatch,_make_tx_df):
     # подмена загрузки транзакций
-    monkeypatch.setattr(views, "load_transactions", lambda: _make_tx_df())
+    monkeypatch.setattr(views, "load_transactions", lambda: _make_tx_df)
 
     # подмена настроек пользователя
     dummy_settings = DummySettings(user_currencies=["USD"], user_stocks=["AAPL"])
@@ -45,8 +48,8 @@ def test_get_main_page_data(monkeypatch):
     assert data["stock_prices"][0]["stock"] == "AAPL"
 
 
-def test_get_events_page_data_month(monkeypatch):
-    monkeypatch.setattr(views, "load_transactions", lambda: _make_tx_df())
+def test_get_events_page_data_month(monkeypatch,_make_tx_df):
+    monkeypatch.setattr(views, "load_transactions", lambda: _make_tx_df)
 
     dummy_settings = DummySettings(user_currencies=["USD"], user_stocks=["AAPL"])
     monkeypatch.setattr(views, "load_user_settings", lambda: dummy_settings)
@@ -59,8 +62,8 @@ def test_get_events_page_data_month(monkeypatch):
 
     assert "expenses" in data
     assert "income" in data
-    assert isinstance(data["expenses"]["total_amount"], int)
-    assert isinstance(data["income"]["total_amount"], int)
+    assert isinstance(data["expenses"]["total_exp_amount"], int)
+    assert isinstance(data["income"]["total_inc_amount"], int)
 
 
 def test_get_events_page_data_invalid_date():

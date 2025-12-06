@@ -61,39 +61,44 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, float]]:
 
 def get_stock_prices(stocks: List[str]) -> List[Dict[str, float]]:
     """
-    Запрашивает цены акций.
+    Запрашивает цены акций одним запросом для всех переданных символов.
     Возвращает список словарей: {"stock": "AAPL", "price": 150.12}
     """
     logger.info("Requesting stock prices for %s", stocks)
 
     results: List[Dict[str, float]] = []
-    for s in stocks:
-        url = "https://api.marketstack.com/v2/eod"
+    if not stocks:
+        logger.warning("No stocks provided to get_stock_prices")
+        return results
+
+    symbols = ",".join(stocks)
+    url = "https://api.marketstack.com/v2/eod"
+    try:
+        response = requests.get(url, params={"access_key": f"{api_key_stock}", "symbols": symbols}, timeout=1000)
+    except requests.RequestException as exc:
+        logger.error("Stock API request failed for %s: %s", symbols, exc)
+        return [{"stock": s, "price": 0.0} for s in stocks]
+
+    status_code = response.status_code
+    if status_code == 200:
         try:
-            response = requests.get(url, params={"access_key": f"{api_key_stock}", "symbols": f"{s}"})
-        except requests.RequestException as exc:
-            logger.error("Stock API request failed for %s: %s", s, exc)
-            results.append({"stock": s, "price": 0.0})
-            continue
-
-        status_code = response.status_code
-        if status_code == 200:
-            try:
-                content_dict = json.loads(response.text)
-                data = content_dict.get("data") or []
-                if not data:
-                    logger.warning("Empty data in stock response for %s: %s", s, content_dict)
-                    price = 0.0
-                else:
-                    price = data[0].get("close", 0.0)
-            except (ValueError, TypeError) as exc:
-                logger.error("Failed to parse stock response for %s: %s", s, exc)
-                price = 0.0
-        else:
-            logger.error("Stock API error for %s: %s %s", s, status_code, response.reason)
-            price = 0.0
-
-        results.append({"stock": s, "price": price})
+            content_dict = json.loads(response.text)
+            data = content_dict.get("data") or []
+            # Build map symbol -> price (take first occurrence)
+            price_map = {}
+            for item in data:
+                sym = item.get("symbol") or item.get("ticker") or item.get("stock")  # tolerate different APIs
+                if sym and sym not in price_map:
+                    price_map[sym] = item.get("close", 0.0)
+            for s in stocks:
+                price = price_map.get(s, 0.0)
+                results.append({"stock": s, "price": price})
+        except (ValueError, TypeError) as exc:
+            logger.error("Failed to parse stock response for %s: %s", symbols, exc)
+            results = [{"stock": s, "price": 0.0} for s in stocks]
+    else:
+        logger.error("Stock API error for %s: %s %s", symbols, status_code, response.reason)
+        results = [{"stock": s, "price": 0.0} for s in stocks]
 
     logger.info("Stock prices fetched: %s", results)
     return results

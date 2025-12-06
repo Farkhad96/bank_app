@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from src import external_api
 
 
@@ -8,11 +10,12 @@ class DummyResponse:
         self.status_code = status_code
         self.text = text
         self.reason = reason
-
-
-def test_get_currency_rates_success(monkeypatch):
+@pytest.fixture
+def cur_payload():
+    return {"quotes": {"USDRUB": 73.21}}
+def test_get_currency_rates_success(monkeypatch,cur_payload):
     def fake_get(url, headers=None, timeout=None):
-        payload = {"quotes": {"USDRUB": 73.21}}
+        payload = cur_payload
         return DummyResponse(200, json.dumps(payload))
 
     monkeypatch.setattr(external_api.requests, "get", fake_get)
@@ -41,10 +44,11 @@ def test_get_currency_rates_bad_json(monkeypatch):
     res = external_api.get_currency_rates(["USD"])
     assert res[0]["rate"] == 0.0
 
-
-def test_get_stock_prices_success(monkeypatch):
-    payload = {"data": [{"close": 150.12}]}
-
+@pytest.fixture
+def stock_payload():
+    return {"data": [{"close": 150.12,"symbol": "AAPL"}]}
+def test_get_stock_prices_success(monkeypatch,stock_payload):
+    payload = stock_payload
     def fake_get(url, params=None, timeout=None):
         assert "symbols" in params
         return DummyResponse(200, json.dumps(payload))
@@ -54,9 +58,11 @@ def test_get_stock_prices_success(monkeypatch):
     res = external_api.get_stock_prices(["AAPL"])
     assert res == [{"stock": "AAPL", "price": 150.12}]
 
-
-def test_get_stock_prices_empty_data(monkeypatch):
-    payload = {"data": []}
+@pytest.fixture
+def empty_stock_payload():
+    return {"data": []}
+def test_get_stock_prices_empty_data(monkeypatch,empty_stock_payload):
+    payload = empty_stock_payload
 
     def fake_get(url, params=None, timeout=None):
         return DummyResponse(200, json.dumps(payload))

@@ -22,7 +22,7 @@ def report_to_file(_func: Any = None, *, filename: str = None) -> Any:
     Декоратор для функций-отчетов.
 
     `@report_to_file` — пишет результат в файл с именем по умолчанию.
-    `@report_to_file(filename="my_report.csv")` — пишет в указанный файл.
+    `@report_to_file(filename="my_report.json")` — пишет в указанный файл.
     """
 
     def decorator_report(func) -> Any:
@@ -86,7 +86,7 @@ def report_expenses_by_category(df: pd.DataFrame) -> str:
     где Сумма_расходов - положительная величина (по модулю расходов).
     """
     logger.info("Building report_expenses_by_category, rows=%d", len(df))
-    df_exp = df[df["Сумма операции"] < 0].copy()
+    df_exp = df[(df["Статус"].isin(["OK"])) & (df["Сумма операции"] < 0)].copy()
     if df_exp.empty:
         logger.info("No expense data for report_expenses_by_category")
         return json.dumps([], ensure_ascii=False)
@@ -112,7 +112,7 @@ def report_expenses_by_weekday(df: pd.DataFrame) -> str:
     День_недели: Понедельник, ..., Воскресенье
     """
     logger.info("Building report_expenses_by_weekday, rows=%d", len(df))
-    df_exp = df[df["Сумма операции"] < 0].copy()
+    df_exp = df[(df["Статус"].isin(["OK"])) & df["Сумма операции"] < 0].copy()
     if df_exp.empty:
         logger.info("No expense data for report_expenses_by_weekday")
         return json.dumps([], ensure_ascii=False)
@@ -156,7 +156,7 @@ def report_expenses_workday_vs_weekend(df: pd.DataFrame) -> str:
     ]
     """
     logger.info("Building report_expenses_workday_vs_weekend, rows=%d", len(df))
-    df_exp = df[df["Сумма операции"] < 0].copy()
+    df_exp = df[(df["Статус"].isin(["OK"])) & df["Сумма операции"] < 0].copy()
     if df_exp.empty:
         logger.info("No expense data for report_expenses_workday_vs_weekend")
         return json.dumps([], ensure_ascii=False)
