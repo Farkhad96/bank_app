@@ -11,6 +11,9 @@ import pandas as pd
 
 from .utils import PROJECT_ROOT
 
+PHONE_PATTERN = re.compile(r"\+7\s?\d{3}\s?\d{3}-?\d{2}-?\d{2}")
+NAME_PATTERN = re.compile(r"[А-ЯЁ][а-яё]+ [А-ЯЁ]\.")
+
 logger = logging.getLogger("services")
 logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler(PROJECT_ROOT / "logs" / "services.log", mode="w", encoding="utf-8")
@@ -142,9 +145,6 @@ def simple_search(transactions: pd.DataFrame, query: str) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-PHONE_PATTERN = re.compile(r"\+7\s?\d{3}\s?\d{3}-?\d{2}-?\d{2}")
-
-
 def search_by_phone_numbers(transactions: pd.DataFrame) -> str:
     """
     Возвращает JSON-строку со всеми транзакциями, в описании которых есть мобильные номера вида:
@@ -170,9 +170,6 @@ def search_by_phone_numbers(transactions: pd.DataFrame) -> str:
             }
         )
     return json.dumps(result, ensure_ascii=False)
-
-
-NAME_PATTERN = re.compile(r"[А-ЯЁ][а-яё]+ [А-ЯЁ]\.")
 
 
 def search_transfers_to_persons(transactions: pd.DataFrame) -> str:
