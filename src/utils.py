@@ -9,6 +9,13 @@ from typing import List, Literal, Tuple
 
 import pandas as pd
 
+from .find_project_root import find_project_root
+
+# Константы путей
+PROJECT_ROOT = find_project_root()
+DATA_DIR = PROJECT_ROOT / "data"
+SETTINGS_PATH = PROJECT_ROOT / "user_settings.json"
+
 
 @dataclass
 class UserSettings:
@@ -16,30 +23,7 @@ class UserSettings:
     user_stocks: List[str]
 
 
-def find_project_root(start: str | Path | None = None) -> Path:
-    """
-    Ищет вверх от start (или от текущего файла) папку,
-    где есть pyproject.toml — считаем её корнем проекта.
-    """
-    if start is None:
-        start = __file__
-
-    path = Path(start).resolve()
-
-    for parent in [path] + list(path.parents):
-        if (parent / "pyproject.toml").is_file():
-            return parent
-
-    raise RuntimeError("Не удалось найти корень проекта (нет pyproject.toml)")
-
-
-# Константы путей
-
-PROJECT_ROOT = find_project_root()
-DATA_DIR = PROJECT_ROOT / "data"
-SETTINGS_PATH = PROJECT_ROOT / "user_settings.json"
-
-
+# Логгер
 logger = logging.getLogger("utils")
 logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler(PROJECT_ROOT / "logs" / "utils.log", mode="w", encoding="utf-8")
