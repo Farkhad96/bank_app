@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import List, Literal,Tuple
+from typing import List, Literal, Tuple
 
 import pandas as pd
-import logging
+
+from .find_project_root import find_project_root
 
 # Константы путей
-
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-SETTINGS_PATH = Path(__file__).resolve().parent.parent / "user_settings.json"
+PROJECT_ROOT = find_project_root()
+DATA_DIR = PROJECT_ROOT / "data"
+SETTINGS_PATH = PROJECT_ROOT / "user_settings.json"
 
 
 @dataclass
@@ -21,25 +23,7 @@ class UserSettings:
     user_stocks: List[str]
 
 
-def find_project_root(start: str | Path | None = None) -> Path:
-    """
-    Ищет вверх от start (или от текущего файла) папку,
-    где есть pyproject.toml — считаем её корнем проекта.
-    """
-    if start is None:
-        start = __file__
-
-    path = Path(start).resolve()
-
-    for parent in [path] + list(path.parents):
-        if (parent / "pyproject.toml").is_file():
-            return parent
-
-    raise RuntimeError("Не удалось найти корень проекта (нет pyproject.toml)")
-
-
-PROJECT_ROOT = find_project_root()
-
+# Логгер
 logger = logging.getLogger("utils")
 logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler(PROJECT_ROOT / "logs" / "utils.log", mode="w", encoding="utf-8")
@@ -58,29 +42,52 @@ def load_transactions(path: Path | None = None) -> pd.DataFrame:
     df = pd.read_excel(path)
 
     # Приводим к нужным типам
-    df["Дата операции"] = pd.to_datetime(df["Дата операции"]).dt.date
+    # Сначала пробуем ожидаемый формат, если не получилось — падаем обратно на автоопределение
+    try:
+        df["Дата операции"] = pd.to_datetime(
+            df["Дата операции"],
+            format="%d.%m.%Y %H:%M:%S",
+            errors="raise",
+        ).dt.date
+    except ValueError:
+        df["Дата операции"] = pd.to_datetime(
+            df["Дата операции"],
+            dayfirst=True,
+            errors="raise",
+        ).dt.date
+
     df["Сумма операции"] = df["Сумма операции"].astype(float)
     df["Категория"] = df["Категория"].astype(str)
     df["Описание"] = df["Описание"].astype(str)
     if "Карта" in df.columns:
         df["Карта"] = df["Карта"].astype(str)
 
+    logger.info("Loaded %d transactions", len(df))
     return df
+
 
 def load_user_settings(path: Path | None = None) -> UserSettings:
     path = path or SETTINGS_PATH
+    logger.info("Loading user settings from %s", path)
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return UserSettings(
+    settings = UserSettings(
         user_currencies=data.get("user_currencies", []),
         user_stocks=data.get("user_stocks", []),
     )
+    logger.info(
+        "User settings loaded: currencies=%s, stocks=%s",
+        settings.user_currencies,
+        settings.user_stocks,
+    )
+    return settings
 
 
 def parse_datetime(dt_str: str) -> datetime:
     """
     Строка формата 'YYYY-MM-DD HH:MM:SS' -> datetime
     """
+    logger.info("Parsing datetime string %r", dt_str)
     return datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
 
 
@@ -95,6 +102,7 @@ def get_date_range(target_date: date, range_kind: RangeKind = "M") -> Tuple[date
     - Y: год (с 1 января)
     - ALL: с минимально возможной даты до target_date
     """
+    logger.info("Calculating date range for %s with kind=%s", target_date, range_kind)
     if range_kind == "W":
         # понедельник текущей недели
         start = target_date - timedelta(days=target_date.weekday())
@@ -109,8 +117,10 @@ def get_date_range(target_date: date, range_kind: RangeKind = "M") -> Tuple[date
         start = date(1970, 1, 1)
         end = target_date
     else:
+        logger.error("Unknown range_kind: %s", range_kind)
         raise ValueError(f"Unknown range_kind: {range_kind}")
 
+    logger.info("Date range calculated: %s - %s", start, end)
     return start, end
 
 
@@ -120,8 +130,16 @@ def filter_by_date_range(
     end_date: date,
     date_col: str = "Дата операции",
 ) -> pd.DataFrame:
+    logger.info(
+        "Filtering dataframe by date range %s - %s, rows_before=%d",
+        start_date,
+        end_date,
+        len(df),
+    )
     mask = (df[date_col] >= start_date) & (df[date_col] <= end_date)
-    return df.loc[mask].copy()
+    result = df.loc[mask].copy()
+    logger.info("Filtering finished, rows_after=%d", len(result))
+    return result
 
 
 def get_greeting(dt: datetime) -> str:
@@ -134,10 +152,12 @@ def get_greeting(dt: datetime) -> str:
     """
     hour = dt.hour
     if 5 <= hour < 12:
-        return "Доброе утро"
+        greeting = "Доброе утро"
     elif 12 <= hour < 17:
-        return "Добрый день"
+        greeting = "Добрый день"
     elif 17 <= hour < 23:
-        return "Добрый вечер"
+        greeting = "Добрый вечер"
     else:
-        return "Доброй ночи"
+        greeting = "Доброй ночи"
+    logger.info("Greeting for %s is %r", dt, greeting)
+    return greeting
